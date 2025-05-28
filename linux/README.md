@@ -91,16 +91,15 @@ pip install b2
    # Konfigurasi Telegram
    TELEGRAM_BOT_TOKEN="your_bot_token"
    TELEGRAM_CHAT_ID="your_chat_id"
-   ENABLE_TELEGRAM_FILE=true  # Set ke true untuk mengirim file ke Telegram
+   ENABLE_TELEGRAM_FILE=false  # Default: false, set ke true jika ingin mengirim file ke Telegram
    TELEGRAM_FILE_SIZE_LIMIT=50  # Ukuran maksimal file dalam MB (default: 50MB)
    
    # Konfigurasi Cloud Storage
    ENABLE_CLOUD_BACKUP=true
-   CLOUD_PROVIDER="aws_s3"  # Pilih: aws_s3, google_drive, dropbox, backblaze_b2
+   CLOUD_PROVIDER="google_drive"  # Pilih: aws_s3, google_drive, dropbox, backblaze_b2
    
-   # Konfigurasi AWS S3
-   AWS_BUCKET="your-bucket-name"
-   AWS_REGION="ap-southeast-1"
+   # Konfigurasi Google Drive
+   RCLONE_REMOTE="gdrive"  # Nama remote rclone yang dikonfigurasi
    ```
 
 2. Konfigurasi Telegram Bot:
@@ -133,8 +132,37 @@ pip install b2
 
    #### Google Drive
    ```bash
+   # Konfigurasi rclone
    rclone config
-   # Ikuti petunjuk untuk mengkonfigurasi Google Drive
+   ```
+   
+   Langkah-langkah konfigurasi rclone:
+   1. Ketik `n` untuk membuat remote baru
+   2. Beri nama remote (misal: `gdrive`)
+   3. Pilih `drive` untuk Google Drive
+   4. Pilih `y` untuk menggunakan browser untuk autentikasi
+   5. Buka browser dan login ke akun Google Anda
+   6. Berikan izin yang diminta
+   7. Pilih `y` untuk konfigurasi lanjutan
+   8. Pilih `1` untuk root folder
+   9. Pilih `n` untuk tidak membatasi akses ke folder tertentu
+   10. Pilih `y` untuk konfirmasi
+   
+   Buat folder di Google Drive:
+   ```bash
+   rclone mkdir gdrive:mysql_backups
+   ```
+   
+   Test konfigurasi:
+   ```bash
+   # Pastikan rclone sudah terkonfigurasi dengan benar
+   rclone config show
+   
+   # Test koneksi ke Google Drive
+   rclone lsd gdrive:
+   
+   # Test upload file
+   rclone copy test.txt gdrive:mysql_backups/
    ```
 
    #### Dropbox
@@ -194,8 +222,8 @@ Script akan mengirim notifikasi untuk berbagai status:
 
 3. Upload ke cloud berhasil:
    ```
-   ✅ Backup berhasil diupload ke AWS S3
-   Lokasi: s3://your-bucket/mysql_backups/your_database_20240220_020000.7z
+   ✅ Backup berhasil diupload ke Google Drive
+   Lokasi: gdrive:mysql_backups/your_database_20240220_020000.7z
    ```
 
 4. File dikirim ke Telegram:
@@ -275,6 +303,8 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Periksa permission dan policy
    - Verifikasi koneksi internet
    - Pastikan tools cloud storage terinstal dengan benar
+   - Untuk Google Drive, pastikan rclone terkonfigurasi dengan benar
+   - Periksa nama remote rclone di konfigurasi script
 
 5. **Error File Upload ke Telegram**:
    - Periksa ukuran file (maksimal 50MB)

@@ -36,11 +36,14 @@ RETENTION_DAYS=7                     # Contoh: 7 hari
 ENABLE_CLOUD_BACKUP=true
 
 # Pilih provider cloud (aws_s3, google_drive, dropbox, backblaze_b2)
-CLOUD_PROVIDER="aws_s3"
+CLOUD_PROVIDER="google_drive"
 
 # Konfigurasi AWS S3
 AWS_BUCKET="your-bucket-name"
 AWS_REGION="ap-southeast-1"  # Sesuaikan dengan region Anda
+
+# Konfigurasi Google Drive
+RCLONE_REMOTE="gdrive"  # Nama remote rclone yang dikonfigurasi
 
 # --- FUNGSI UNTUK LOGGING ---
 log_message() {
@@ -170,7 +173,7 @@ upload_to_cloud() {
                 
             "google_drive")
                 # Upload ke Google Drive menggunakan rclone
-                rclone copy "$file_path" "remote:mysql_backups/"
+                rclone copy "$file_path" "${RCLONE_REMOTE}:mysql_backups/"
                 
                 if [ $? -eq 0 ]; then
                     log_message "Upload ke Google Drive berhasil"

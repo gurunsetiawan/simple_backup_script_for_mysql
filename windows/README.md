@@ -52,6 +52,28 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
    # Konfigurasi rclone
    rclone config
    ```
+   
+   Langkah-langkah konfigurasi rclone:
+   1. Ketik `n` untuk membuat remote baru
+   2. Beri nama remote (misal: `gdrive`)
+   3. Pilih `drive` untuk Google Drive
+   4. Pilih `y` untuk menggunakan browser untuk autentikasi
+   5. Buka browser dan login ke akun Google Anda
+   6. Berikan izin yang diminta
+   7. Pilih `y` untuk konfigurasi lanjutan
+   8. Pilih `1` untuk root folder
+   9. Pilih `n` untuk tidak membatasi akses ke folder tertentu
+   10. Pilih `y` untuk konfirmasi
+   
+   Buat folder di Google Drive:
+   ```powershell
+   rclone mkdir gdrive:mysql_backups
+   ```
+   
+   Test konfigurasi:
+   ```powershell
+   rclone lsd gdrive:
+   ```
 
    #### Dropbox
    ```powershell
@@ -81,16 +103,15 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
    :: Konfigurasi Telegram
    set TELEGRAM_BOT_TOKEN=your_bot_token
    set TELEGRAM_CHAT_ID=your_chat_id
-   set ENABLE_TELEGRAM_FILE=true  :: Set ke true untuk mengirim file ke Telegram
+   set ENABLE_TELEGRAM_FILE=false  :: Default: false, set ke true jika ingin mengirim file ke Telegram
    set TELEGRAM_FILE_SIZE_LIMIT=50  :: Ukuran maksimal file dalam MB (default: 50MB)
    
    :: Konfigurasi Cloud Storage
    set ENABLE_CLOUD_BACKUP=true
-   set CLOUD_PROVIDER=aws_s3  :: Pilih: aws_s3, google_drive, dropbox, backblaze_b2
+   set CLOUD_PROVIDER=google_drive  :: Pilih: aws_s3, google_drive, dropbox, backblaze_b2
    
-   :: Konfigurasi AWS S3
-   set AWS_BUCKET=your-bucket-name
-   set AWS_REGION=ap-southeast-1
+   :: Konfigurasi Google Drive
+   set RCLONE_REMOTE=gdrive  :: Nama remote rclone yang dikonfigurasi
    ```
 
 2. Konfigurasi Telegram Bot:
@@ -123,8 +144,14 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
 
    #### Google Drive
    ```powershell
-   rclone config
-   # Ikuti petunjuk untuk mengkonfigurasi Google Drive
+   # Pastikan rclone sudah terkonfigurasi dengan benar
+   rclone config show
+   
+   # Test koneksi ke Google Drive
+   rclone lsd gdrive:
+   
+   # Test upload file
+   rclone copy test.txt gdrive:mysql_backups/
    ```
 
    #### Dropbox
@@ -178,8 +205,8 @@ Script akan mengirim notifikasi untuk berbagai status:
 
 3. Upload ke cloud berhasil:
    ```
-   ✅ Backup berhasil diupload ke AWS S3
-   Lokasi: s3://your-bucket/mysql_backups/your_database_20240220_020000.7z
+   ✅ Backup berhasil diupload ke Google Drive
+   Lokasi: gdrive:mysql_backups/your_database_20240220_020000.7z
    ```
 
 4. File dikirim ke Telegram:
@@ -259,6 +286,8 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Periksa permission dan policy
    - Verifikasi koneksi internet
    - Pastikan tools cloud storage terinstal dengan benar
+   - Untuk Google Drive, pastikan rclone terkonfigurasi dengan benar
+   - Periksa nama remote rclone di konfigurasi script
 
 5. **Error File Upload ke Telegram**:
    - Periksa ukuran file (maksimal 50MB)
