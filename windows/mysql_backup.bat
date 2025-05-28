@@ -17,6 +17,37 @@ SET DB_PASS=your_mysql_password        REM Kata sandi pengguna MySQL Anda
 SET DB_NAME=your_database_name         REM Nama database yang akan dibackup (misal: "my_app_db")
                                      REM Atau gunakan "ALL_DATABASES" untuk backup semua database
 
+REM --- KONFIGURASI TELEGRAM ---
+SET TELEGRAM_BOT_TOKEN=your_bot_token_here    REM Token bot Telegram Anda
+SET TELEGRAM_CHAT_ID=your_chat_id_here        REM Chat ID untuk notifikasi
+
+REM --- FUNGSI UNTUK KIRIM NOTIFIKASI TELEGRAM ---
+:send_telegram_notification
+SET "MESSAGE=🔔 MySQL Backup Notification%0A%0A📊 Status: %1%0A⏰ Time: %DATE% %TIME%%0A📁 Database: %DB_NAME%%0A%0A%2"
+SET "MESSAGE=!MESSAGE: =%%20!"
+
+REM Menggunakan PowerShell untuk mengirim pesan Telegram
+powershell -Command "& {
+    $botToken = '%TELEGRAM_BOT_TOKEN%'
+    $chatId = '%TELEGRAM_CHAT_ID%'
+    $message = '%MESSAGE%'
+    
+    $url = 'https://api.telegram.org/bot' + $botToken + '/sendMessage'
+    $body = @{
+        chat_id = $chatId
+        text = $message
+        parse_mode = 'HTML'
+    } | ConvertTo-Json
+    
+    try {
+        $response = Invoke-RestMethod -Uri $url -Method Post -Body $body -ContentType 'application/json'
+        echo 'Telegram notification sent successfully'
+    } catch {
+        echo 'Failed to send Telegram notification: ' + $_.Exception.Message
+    }
+}"
+GOTO :EOF
+
 REM --- KONFIGURASI DIREKTORI & PATH APLIKASI ---
 REM Direktori tempat file backup akan disimpan.
 SET BACKUP_DIR=C:\MySQL_Backups      REM Contoh: C:\Users\YourUser\Documents\MySQL_Backups
@@ -145,6 +176,9 @@ REM ============================================================================
 CALL :log_message "----------------------------------------------------"
 CALL :log_message "Memulai proses backup MySQL..."
 
+REM Kirim notifikasi mulai backup
+CALL :send_telegram_notification "STARTED" "Memulai proses backup database..."
+
 REM Panggil fungsi backup database
 CALL :backup_database
 IF %ERRORLEVEL% EQU 0 (
@@ -152,12 +186,15 @@ IF %ERRORLEVEL% EQU 0 (
     CALL :compress_backup
     IF %ERRORLEVEL% EQU 0 (
         CALL :log_message "Proses backup dan kompresi selesai dengan sukses."
+        CALL :send_telegram_notification "SUCCESS" "✅ Backup dan kompresi selesai dengan sukses."
         CALL :clean_old_backups REM Panggil fungsi pembersihan setelah backup baru dibuat
     ) ELSE (
         CALL :log_message "Proses backup selesai dengan ERROR pada kompresi."
+        CALL :send_telegram_notification "ERROR" "❌ Gagal pada proses kompresi backup."
     )
 ) ELSE (
     CALL :log_message "Proses backup selesai dengan ERROR pada backup database."
+    CALL :send_telegram_notification "ERROR" "❌ Gagal pada proses backup database."
 )
 
 CALL :log_message "----------------------------------------------------"

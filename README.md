@@ -1,95 +1,57 @@
-# README: Automated MySQL Database Backup #
+# MySQL Backup Script
 
-This guide provides a quick and easy way to set up automated MySQL database backups to a 7z archive, including automatic old backup cleanup.
+Script otomatisasi backup database MySQL dengan fitur kompresi 7z dan notifikasi Telegram.
 
-### 🚀 Features ###
-
-Automated Backups: Uses mysqldump to create full database backups.
-Efficient Compression: Compresses backups to .7z format to save disk space.
-Date-Based Naming: Backups are named with a YYYY-MM-DD_HH-MM-SS timestamp for easy identification.
-Flexible Scope: Back up a single database or all databases on your server.
-Automatic Cleanup: Automatically deletes old backups to manage storage.
-
-
-### 🛠️ Requirements ###
-
-For Linux/macOS (Bash Script)
-
-MySQL Server: mysqldump tool (usually included with MySQL server installation).
-7-Zip: p7zip-full package. Install with sudo apt-get install p7zip-full (Debian/Ubuntu) or sudo yum install p7zip p7zip-plugins (CentOS/RHEL).
-
-For Windows (Batch Script)
-
-MySQL Server: `mysqldump.exe` (included with MySQL server installation).
-7-Zip: `7z.exe` command-line tool. Ensure it's installed and its path is known.
-
-### ⚙️ Quick Setup & Usage ###
-
-1. Configure Your Script
-Choose the script for your OS: backup_mysql.sh (Linux/macOS) or backup_mysql.bat (Windows).
-
-Open the script in any text editor.
-
-Adjust these variables:
-```
-DB_USER: Your MySQL username.
-DB_PASS: Your MySQL password.
-DB_NAME: The database to backup (e.g., "my_app_db"). Use "ALL_DATABASES" to back up all databases.
-```
-BACKUP_DIR: The full path to your backup directory (e.g., `/var/backups/mysql` or `C:\MySQL_Backups`). Ensure this directory exists and has write permissions.
-
-
-RETENTION_DAYS: How many days to keep backups (e.g., 7 for a week). Set to 0 to disable auto-cleanup.
-
-Windows only:
-```
-MYSQLDUMP_PATH: Full path to mysqldump.exe (e.g., "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe").
-PATH_7Z: Full path to 7z.exe (e.g., "C:\Program Files\7-Zip\7z.exe").
-```
-2. Test Manually
-
-Run the script once to confirm everything works as expected:
-
-Linux/macOS:
-```Bash
-
-chmod +x /path/to/your/backup_mysql.sh
-/path/to/your/backup_mysql.sh
-```
-
-Windows:
-```DOS
-
-cd C:\path\to\your\script\directory
-backup_mysql.bat
-```
-Check the console for any error messages.
-
-3. Schedule Automation
-Linux/macOS (Cron):
-Open crontab: `crontab -e`
-Add a line like this to run daily at 2 AM:
+## 📁 Struktur Proyek
 
 ```
-0 2 * * * /path/to/your/backup_mysql.sh >> /var/log/mysql_backup.log 2>&1
+.
+├── windows/                 # Versi Windows
+│   ├── mysql_backup.bat    # Script backup untuk Windows
+│   └── README.md           # Dokumentasi versi Windows
+│
+└── linux/                  # Versi Linux
+    ├── mysql_backup.sh     # Script backup untuk Linux
+    └── README.md           # Dokumentasi versi Linux
 ```
-Replace /path/to/your/backup_mysql.sh with your script's actual path. Output will be logged to `/var/log/mysql_backup.log`.
 
-Windows (Task Scheduler):
+## 🚀 Fitur Utama
 
-Search for `"Task Scheduler"` in the Start Menu.
-Click `"Create Basic Task..."`.
-Follow the wizard: Give it a Name (e.g., "Daily MySQL Backup"), set the Trigger (e.g., "Daily" at 2:00 AM).
-For Action, choose "Start a program". Browse to your backup_mysql.bat file.
-In "Start in (optional)", enter the directory where backup_mysql.bat is located (e.g., C:\Scripts\).
-After creation, right-click the task, select Properties, check "Run with highest privileges", and optionally select "Run whether user is logged on or not" (you'll need to provide Windows user credentials).
+- Backup otomatis database MySQL
+- Kompresi ke format 7z untuk menghemat ruang
+- Penamaan file berdasarkan timestamp
+- Pembersihan backup lama secara otomatis
+- Notifikasi real-time via Telegram
+- Mendukung backup single database atau all databases
 
+## ⚙️ Memilih Versi yang Tepat
 
-### 💡 Important Notes ###
+### Windows
+- Gunakan folder `windows/` jika Anda menggunakan sistem operasi Windows
+- Script menggunakan PowerShell untuk notifikasi Telegram
+- Menggunakan Task Scheduler untuk otomatisasi
 
-Security: Storing passwords directly in scripts carries a risk. Ensure strict file permissions for your script. For production, consider more secure methods like MySQL's .my.cnf file (Linux) or environment variables.
-Backup Location: Ideally, store backups on a different disk or even off-site (e.g., cloud storage) to protect against data loss from hardware failure.
+### Linux
+- Gunakan folder `linux/` jika Anda menggunakan sistem operasi Linux
+- Script menggunakan curl untuk notifikasi Telegram
+- Menggunakan crontab untuk otomatisasi
 
-Test Restores! A backup is only useful if you can restore it. Regularly test your recovery process to ensure your backups are valid and usable.
+## 📚 Dokumentasi
 
-Monitor Logs: Periodically check the logs `(/var/log/mysql_backup.log or Task Scheduler history)` to confirm successful backups and identify any issues.
+- Untuk Windows: Lihat [README.md di folder windows](windows/README.md)
+- Untuk Linux: Lihat [README.md di folder linux](linux/README.md)
+
+## 🔒 Keamanan
+
+- Jaga kerahasiaan kredensial database
+- Amankan token bot Telegram
+- Gunakan permission yang tepat untuk file script
+- Pertimbangkan menggunakan metode yang lebih aman untuk menyimpan kredensial
+
+## 🤝 Kontribusi
+
+Silakan buat pull request untuk kontribusi. Untuk perubahan besar, buka issue terlebih dahulu untuk mendiskusikan perubahan yang diinginkan.
+
+## 📝 Lisensi
+
+Lihat file [LICENSE](LICENSE) untuk detail lisensi. 
