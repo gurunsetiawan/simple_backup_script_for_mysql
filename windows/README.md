@@ -1,132 +1,108 @@
-# README: Automated MySQL Database Backup #
+# MySQL Backup Script for Windows
 
-This guide provides a quick and easy way to set up automated MySQL database backups to a 7z archive, including automatic old backup cleanup and Telegram notifications.
+Script ini menyediakan cara mudah untuk melakukan backup otomatis database MySQL ke dalam format 7z, termasuk pembersihan backup lama dan notifikasi Telegram.
 
-### 🚀 Features ###
+## 🚀 Fitur
 
-Automated Backups: Uses mysqldump to create full database backups.
-Efficient Compression: Compresses backups to .7z format to save disk space.
-Date-Based Naming: Backups are named with a YYYY-MM-DD_HH-MM-SS timestamp for easy identification.
-Flexible Scope: Back up a single database or all databases on your server.
-Automatic Cleanup: Automatically deletes old backups to manage storage.
-Telegram Notifications: Real-time notifications about backup status via Telegram.
+- Backup Otomatis: Menggunakan mysqldump untuk membuat backup database
+- Kompresi Efisien: Mengkompresi backup ke format 7z untuk menghemat ruang
+- Penamaan Berdasarkan Tanggal: Backup diberi nama dengan format YYYY-MM-DD_HH-MM-SS
+- Cakupan Fleksibel: Backup satu database atau semua database
+- Pembersihan Otomatis: Menghapus backup lama secara otomatis
+- Notifikasi Telegram: Notifikasi real-time tentang status backup
 
+## 🛠️ Persyaratan
 
-### 🛠️ Requirements ###
+- MySQL Server: `mysqldump.exe` (biasanya sudah termasuk dalam instalasi MySQL)
+- 7-Zip: `7z.exe` command-line tool
+  - Download dari [7-Zip website](https://7-zip.org/)
+  - Pastikan path ke `7z.exe` sudah benar dalam script
+- PowerShell: Untuk mengirim notifikasi Telegram (sudah termasuk dalam Windows)
 
-For Linux/macOS (Bash Script)
+## ⚙️ Pengaturan Cepat
 
-MySQL Server: mysqldump tool (usually included with MySQL server installation).
-7-Zip: p7zip-full package. Install with sudo apt-get install p7zip-full (Debian/Ubuntu) or sudo yum install p7zip p7zip-plugins (CentOS/RHEL).
+1. Konfigurasi Script
+   Buka script dalam editor teks dan sesuaikan variabel berikut:
+   ```batch
+   SET DB_USER=your_mysql_username        REM Nama pengguna MySQL Anda
+   SET DB_PASS=your_mysql_password        REM Kata sandi pengguna MySQL Anda
+   SET DB_NAME=your_database_name         REM Nama database atau "ALL_DATABASES"
+   SET BACKUP_DIR=C:\MySQL_Backups        REM Direktori backup
+   SET RETENTION_DAYS=7                   REM Jumlah hari untuk menyimpan backup
+   ```
 
-For Windows (Batch Script)
+2. Konfigurasi Path Aplikasi
+   Sesuaikan path ke aplikasi yang diperlukan:
+   ```batch
+   SET MYSQLDUMP_PATH="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+   SET PATH_7Z="C:\Program Files\7-Zip\7z.exe"
+   ```
 
-MySQL Server: `mysqldump.exe` (included with MySQL server installation).
-7-Zip: `7z.exe` command-line tool. Ensure it's installed and its path is known.
-PowerShell: Required for Telegram notifications (included in Windows by default).
+3. Konfigurasi Notifikasi Telegram
+   a. Buat Bot Telegram:
+      - Buka Telegram dan cari "@BotFather"
+      - Kirim perintah `/newbot`
+      - Ikuti instruksi untuk membuat bot baru
+      - Simpan BOT_TOKEN yang diberikan
 
-### ⚙️ Quick Setup & Usage ###
+   b. Dapatkan Chat ID:
+      - Kirim pesan ke bot baru Anda
+      - Buka browser dan akses: `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates`
+      - Cari `"chat":{"id":` dalam response
 
-1. Configure Your Script
-Choose the script for your OS: backup_mysql.sh (Linux/macOS) or backup_mysql.bat (Windows).
+   c. Update Konfigurasi Script:
+      ```batch
+      SET TELEGRAM_BOT_TOKEN=your_bot_token_here
+      SET TELEGRAM_CHAT_ID=your_chat_id_here
+      ```
 
-Open the script in any text editor.
+4. Test Manual
+   ```batch
+   cd C:\path\to\script\directory
+   mysql_backup.bat
+   ```
+   Anda akan menerima notifikasi Telegram tentang status backup.
 
-Adjust these variables:
-```
-DB_USER: Your MySQL username.
-DB_PASS: Your MySQL password.
-DB_NAME: The database to backup (e.g., "my_app_db"). Use "ALL_DATABASES" to back up all databases.
-```
-BACKUP_DIR: The full path to your backup directory (e.g., `/var/backups/mysql` or `C:\MySQL_Backups`). Ensure this directory exists and has write permissions.
+5. Jadwalkan Otomatisasi
+   a. Buka Task Scheduler:
+      - Cari "Task Scheduler" di Start Menu
+      - Klik "Create Basic Task..."
 
+   b. Konfigurasi Task:
+      - Name: "Daily MySQL Backup"
+      - Trigger: "Daily" at 2:00 AM
+      - Action: "Start a program"
+      - Program: Browse ke file `mysql_backup.bat`
+      - Start in: Masukkan direktori tempat `mysql_backup.bat` berada
 
-RETENTION_DAYS: How many days to keep backups (e.g., 7 for a week). Set to 0 to disable auto-cleanup.
+   c. Setelah pembuatan task:
+      - Klik kanan pada task
+      - Pilih Properties
+      - Centang "Run with highest privileges"
+      - Opsional: Centang "Run whether user is logged on or not"
 
-Windows only:
-```
-MYSQLDUMP_PATH: Full path to mysqldump.exe (e.g., "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe").
-PATH_7Z: Full path to 7z.exe (e.g., "C:\Program Files\7-Zip\7z.exe").
-```
-2. Configure Telegram Notifications
-To enable Telegram notifications:
+## 📱 Notifikasi Telegram
 
-a. Create a Telegram Bot:
-   - Open Telegram and search for "@BotFather"
-   - Send `/newbot` command
-   - Follow instructions to create a new bot
-   - Save the BOT_TOKEN provided
+Script mengirim notifikasi pada beberapa tahap penting:
 
-b. Get Your Chat ID:
-   - Send a message to your new bot
-   - Open browser and visit: `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates`
-   - Look for `"chat":{"id":` in the response
-
-c. Update Script Configuration:
-   - Set `TELEGRAM_BOT_TOKEN` with your bot token
-   - Set `TELEGRAM_CHAT_ID` with your chat ID
-
-2. Test Manually
-
-Run the script once to confirm everything works as expected:
-
-Linux/macOS:
-```Bash
-
-chmod +x /path/to/your/backup_mysql.sh
-/path/to/your/backup_mysql.sh
-```
-
-Windows:
-```DOS
-
-cd C:\path\to\your\script\directory
-backup_mysql.bat
-```
-You should receive a Telegram notification with the backup status.
-
-3. Schedule Automation
-Linux/macOS (Cron):
-Open crontab: `crontab -e`
-Add a line like this to run daily at 2 AM:
-
-```
-0 2 * * * /path/to/your/backup_mysql.sh >> /var/log/mysql_backup.log 2>&1
-```
-Replace /path/to/your/backup_mysql.sh with your script's actual path. Output will be logged to `/var/log/mysql_backup.log`.
-
-Windows (Task Scheduler):
-
-Search for `"Task Scheduler"` in the Start Menu.
-Click `"Create Basic Task..."`.
-Follow the wizard: Give it a Name (e.g., "Daily MySQL Backup"), set the Trigger (e.g., "Daily" at 2:00 AM).
-For Action, choose "Start a program". Browse to your backup_mysql.bat file.
-In "Start in (optional)", enter the directory where backup_mysql.bat is located (e.g., C:\Scripts\).
-After creation, right-click the task, select Properties, check "Run with highest privileges", and optionally select "Run whether user is logged on or not" (you'll need to provide Windows user credentials).
-
-
-### 📱 Telegram Notifications ###
-
-The script sends notifications at key points during the backup process:
-
-1. Backup Start:
+1. Mulai Backup:
 ```
 🔔 MySQL Backup Notification
 
 📊 Status: STARTED
-⏰ Time: [Current Time]
-📁 Database: [Database Name]
+⏰ Time: [Waktu Backup]
+📁 Database: [Nama Database]
 
 Memulai proses backup database...
 ```
 
-2. Backup Success:
+2. Backup Sukses:
 ```
 🔔 MySQL Backup Notification
 
 📊 Status: SUCCESS
-⏰ Time: [Current Time]
-📁 Database: [Database Name]
+⏰ Time: [Waktu Backup]
+📁 Database: [Nama Database]
 
 ✅ Backup dan kompresi selesai dengan sukses.
 ```
@@ -136,19 +112,48 @@ Memulai proses backup database...
 🔔 MySQL Backup Notification
 
 📊 Status: ERROR
-⏰ Time: [Current Time]
-📁 Database: [Database Name]
+⏰ Time: [Waktu Backup]
+📁 Database: [Nama Database]
 
-❌ [Error Message]
+❌ [Pesan Error]
 ```
 
-### 💡 Important Notes ###
+## 💡 Catatan Penting
 
-Security: Storing passwords directly in scripts carries a risk. Ensure strict file permissions for your script. For production, consider more secure methods like MySQL's .my.cnf file (Linux) or environment variables.
-Backup Location: Ideally, store backups on a different disk or even off-site (e.g., cloud storage) to protect against data loss from hardware failure.
+- Keamanan:
+  - Menyimpan password dalam script memiliki risiko
+  - Pastikan file script hanya bisa diakses oleh pengguna yang berwenang
+  - Untuk production, pertimbangkan menggunakan environment variables
+  - Jaga kerahasiaan token bot Telegram
 
-Test Restores! A backup is only useful if you can restore it. Regularly test your recovery process to ensure your backups are valid and usable.
+- Lokasi Backup:
+  - Idealnya simpan backup di disk berbeda atau off-site
+  - Pertimbangkan cloud storage untuk keamanan tambahan
+  - Pastikan direktori backup memiliki permission yang tepat
 
-Monitor Logs: Periodically check the logs `(/var/log/mysql_backup.log or Task Scheduler history)` to confirm successful backups and identify any issues.
+- Testing:
+  - Test Restore! Backup hanya berguna jika bisa di-restore
+  - Test proses recovery secara berkala
+  - Verifikasi notifikasi Telegram berfungsi
 
-Verify Telegram notifications are working.
+- Monitoring:
+  - Periksa Task Scheduler history secara berkala
+  - Monitor notifikasi Telegram
+  - Verifikasi file backup dibuat dan dirotasi dengan benar
+
+## 🔧 Troubleshooting
+
+1. Script tidak berjalan:
+   - Pastikan path ke `mysqldump.exe` dan `7z.exe` sudah benar
+   - Pastikan user memiliki akses ke direktori backup
+   - Jalankan script sebagai Administrator
+
+2. Notifikasi Telegram tidak terkirim:
+   - Periksa koneksi internet
+   - Verifikasi token bot dan chat ID
+   - Pastikan PowerShell bisa mengakses internet
+
+3. Backup gagal:
+   - Periksa kredensial database
+   - Pastikan MySQL server berjalan
+   - Periksa ruang disk yang tersedia
