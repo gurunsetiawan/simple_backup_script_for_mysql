@@ -203,17 +203,35 @@ backup_multiple_databases() {
         if [ $? -eq 0 ]; then
             log_message "INFO" "Kompresi berhasil" "archive=$FULL_ARCHIVE_PATH"
             # Hapus file SQL individual
-            rm "${BACKUP_DIR}/*_${TIMESTAMP}.sql"
-            log_message "INFO" "File SQL individual telah dihapus" ""
-            return 0
+            # rm "${BACKUP_DIR}/*_${TIMESTAMP}.sql" # Penghapusan dipindahkan ke bawah
+            # log_message "INFO" "File SQL individual telah dihapus" "" # Penghapusan dipindahkan ke bawah
+            return 0 # Kompresi berhasil
         else
             log_message "ERROR" "Kompresi gagal" ""
-            return 1
+            # Lanjutkan eksekusi untuk menghapus file .sql meskipun kompresi gagal
+            return 1 # Kompresi gagal
         fi
     else
         log_message "ERROR" "Beberapa database gagal dibackup" ""
-        return 1
+        # Lanjutkan eksekusi untuk menghapus file .sql meskipun backup gagal
+        return 1 # Backup database gagal
     fi
+    
+    # --- LANGKAH PEMBERSIHAN FILE .SQL ---    
+    # Hapus file .sql individual dengan timestamp saat ini
+    # Langkah ini dijalankan terlepas dari keberhasilan kompresi
+    if ls "${BACKUP_DIR}/*_${TIMESTAMP}.sql" 1> /dev/null 2>&1; then
+        rm "${BACKUP_DIR}/*_${TIMESTAMP}.sql"
+        if [ $? -eq 0 ]; then
+            log_message "INFO" "File SQL individual dengan timestamp $TIMESTAMP telah dihapus." ""
+        else
+            log_message "WARNING" "Gagal menghapus file SQL individual dengan timestamp $TIMESTAMP." ""
+        fi
+    else
+        #log_message "DEBUG" "Tidak ada file SQL individual dengan timestamp $TIMESTAMP ditemukan untuk dihapus." ""
+        : # Tidak melakukan apa-apa jika tidak ada file yang cocok ditemukan
+    fi
+    # --- AKHIR LANGKAH PEMBERSIHAN ---
 }
 
 # --- FUNGSI UNTUK ROTASI BACKUP ---

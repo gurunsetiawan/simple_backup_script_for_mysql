@@ -207,8 +207,6 @@ if "%success%"=="true" (
     if %ERRORLEVEL% EQU 0 (
         call :log_message "INFO" "Kompresi berhasil" "archive=%FULL_ARCHIVE_PATH%"
         :: Hapus file SQL individual
-        del "%BACKUP_DIR%\*_%TIMESTAMP%.sql"
-        call :log_message "INFO" "File SQL individual telah dihapus" ""
         endlocal & exit /b 0
     ) else (
         call :log_message "ERROR" "Kompresi gagal" ""
@@ -346,5 +344,21 @@ if %ERRORLEVEL% EQU 0 (
     call :log_message "ERROR" "Proses backup selesai dengan ERROR." ""
     call :send_telegram_notification "ERROR" "❌ Gagal pada proses backup database."
 )
+
+:: --- LANGKAH PEMBERSIHAN FILE .SQL ---
+:: Hapus file .sql individual dengan timestamp saat ini
+:: Langkah ini dijalankan terlepas dari keberhasilan kompresi
+if exist "%BACKUP_DIR%\*_%TIMESTAMP%.sql" (
+    del "%BACKUP_DIR%\*_%TIMESTAMP%.sql"
+    if %ERRORLEVEL% EQU 0 (
+        call :log_message "INFO" "File SQL individual dengan timestamp %TIMESTAMP% telah dihapus." ""
+    ) else (
+        call :log_message "WARNING" "Gagal menghapus file SQL individual dengan timestamp %TIMESTAMP%." ""
+    )
+) else (
+    :: call :log_message "DEBUG" "Tidak ada file SQL individual dengan timestamp %TIMESTAMP% ditemukan untuk dihapus." ""
+    :: Tidak melakukan apa-apa jika tidak ada file yang cocok ditemukan
+)
+:: --- AKHIR LANGKAH PEMBERSIHAN ---
 
 call :log_message "INFO" "----------------------------------------------------" ""
