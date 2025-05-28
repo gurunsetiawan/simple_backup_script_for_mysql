@@ -11,6 +11,9 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
 - Notifikasi real-time melalui Telegram
 - Upload otomatis ke cloud storage (AWS S3, Google Drive, Dropbox, Backblaze B2)
 - Pengiriman file backup langsung ke Telegram (opsional, dinonaktifkan secara default)
+- Logging otomatis ke file dengan format tanggal
+- Rotasi log otomatis setiap 3 bulan (dapat dikonfigurasi)
+- Opsi untuk mengaktifkan/menonaktifkan logging
 
 ## Persyaratan
 
@@ -112,6 +115,10 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
    
    :: Konfigurasi Google Drive
    set RCLONE_REMOTE=gdrive  :: Nama remote rclone yang dikonfigurasi
+   
+   :: Konfigurasi Logging
+   set ENABLE_LOGGING=true  :: Set ke false untuk menonaktifkan logging
+   set LOG_DIR=C:\backups\mysql\logs  :: Direktori untuk menyimpan log file
    ```
 
 2. Konfigurasi Telegram Bot:
@@ -236,27 +243,36 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Gunakan lokasi terpisah dari database
    - Pertimbangkan untuk menggunakan drive terpisah
 
-3. **Testing**:
+3. **Logging**:
+   - Log file disimpan di `C:\backups\mysql\logs`
+   - Format nama file: `mysql_backup_YYYYMMDD.log`
+   - Log berisi timestamp, status, dan detail setiap operasi
+   - Log mencakup output dari semua perintah (mysqldump, 7z, rclone, dll)
+   - Direktori log akan dibuat otomatis jika belum ada
+   - Pastikan ada ruang disk yang cukup untuk log
+   - Pertimbangkan untuk mengatur rotasi log
+
+4. **Testing**:
    - Test proses restore secara berkala
    - Verifikasi integritas backup
    - Test notifikasi Telegram
    - Test upload ke cloud storage
    - Test pengiriman file ke Telegram
 
-4. **Monitoring**:
+5. **Monitoring**:
    - Periksa log file secara berkala
    - Monitor penggunaan ruang disk
    - Monitor biaya cloud storage
    - Set up monitoring untuk notifikasi error
    - Monitor ukuran file yang dikirim ke Telegram
 
-5. **Cloud Storage**:
+6. **Cloud Storage**:
    - Pilih storage class yang sesuai dengan kebutuhan
    - Atur lifecycle policy untuk menghemat biaya
    - Enkripsi data sebelum upload
    - Verifikasi upload secara berkala
 
-6. **Telegram File Upload**:
+7. **Telegram File Upload**:
    - Perhatikan batas ukuran file (50MB)
    - Pastikan koneksi internet stabil
    - Monitor penggunaan bandwidth

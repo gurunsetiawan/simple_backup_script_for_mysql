@@ -10,11 +10,10 @@
 
 # --- KONFIGURASI DATABASE ---
 # Ganti nilai-nilai berikut dengan kredensial database Anda.
-# Jika ingin membackup semua database, set DB_NAME="ALL_DATABASES"
 DB_USER="your_mysql_username"        # Nama pengguna MySQL Anda
 DB_PASS="your_mysql_password"        # Kata sandi pengguna MySQL Anda
-DB_NAME="your_database_name"         # Nama database yang akan dibackup (misal: "my_app_db")
-                                    # Atau gunakan "ALL_DATABASES" untuk backup semua database
+DB_NAME="ALL_DATABASES"             # Gunakan "ALL_DATABASES" untuk backup semua database
+                                    # Atau daftar database yang dipisahkan koma (misal: "db1,db2,db3")
 
 # --- KONFIGURASI TELEGRAM ---
 TELEGRAM_BOT_TOKEN="your_bot_token"
@@ -45,15 +44,87 @@ AWS_REGION="ap-southeast-1"  # Sesuaikan dengan region Anda
 # Konfigurasi Google Drive
 RCLONE_REMOTE="gdrive"  # Nama remote rclone yang dikonfigurasi
 
+# --- KONFIGURASI LOGGING ---
+# Set ke "true" untuk mengaktifkan logging
+ENABLE_LOGGING=true
+
+# Direktori untuk menyimpan log file
+LOG_DIR="/var/log/mysql_backup"
+
+# Rotasi log setiap 3 bulan (90 hari)
+LOG_RETENTION_DAYS=90
+
+# Level log yang akan dicatat (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+LOG_LEVEL="INFO"
+
+# Nama file log dengan format tanggal
+LOG_FILE="${LOG_DIR}/mysql_backup_$(date +%Y%m%d).log"
+
 # --- FUNGSI UNTUK LOGGING ---
 log_message() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $*"
+    local level="$1"
+    local message="$2"
+    local details="$3"
+    
+    # Cek level log
+    case "$LOG_LEVEL" in
+        "DEBUG")
+            ;;
+        "INFO")
+            if [ "$level" = "DEBUG" ]; then return; fi
+            ;;
+        "WARNING")
+            if [ "$level" = "DEBUG" ] || [ "$level" = "INFO" ]; then return; fi
+            ;;
+        "ERROR")
+            if [ "$level" = "DEBUG" ] || [ "$level" = "INFO" ] || [ "$level" = "WARNING" ]; then return; fi
+            ;;
+        "CRITICAL")
+            if [ "$level" != "CRITICAL" ]; then return; fi
+            ;;
+    esac
+    
+    # Buat JSON log entry
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local json_log="{\"timestamp\":\"$timestamp\",\"level\":\"$level\",\"message\":\"$message\",\"details\":\"$details\"}"
+    
+    if [ "$ENABLE_LOGGING" = "true" ]; then
+        echo "$json_log" >> "$LOG_FILE"
+    fi
+    echo "$timestamp [$level] $message"
+}
+
+# --- FUNGSI UNTUK ROTASI LOG ---
+rotate_logs() {
+    if [ "$ENABLE_LOGGING" = "true" ] && [ "$LOG_RETENTION_DAYS" -gt 0 ]; then
+        log_message "INFO" "Menghapus log yang lebih lama dari $LOG_RETENTION_DAYS hari..." ""
+        
+        # Kompres log lama
+        find "$LOG_DIR" -name "*.log" -type f -mtime +1 | while read -r log_file; do
+            if [ -f "$log_file" ]; then
+                gzip -9 "$log_file"
+            fi
+        done
+        
+        # Hapus log zip yang lebih lama dari retention period
+        find "$LOG_DIR" -name "*.log.gz" -type f -mtime +$LOG_RETENTION_DAYS -delete
+        
+        if [ $? -eq 0 ]; then
+            log_message "INFO" "Pembersihan log lama selesai." ""
+        else
+            log_message "WARNING" "Gagal membersihkan log lama. Periksa izin atau path." ""
+        fi
+    elif [ "$ENABLE_LOGGING" = "true" ]; then
+        log_message "INFO" "Rotasi log dinonaktifkan (LOG_RETENTION_DAYS = 0)." ""
+    fi
 }
 
 # --- FUNGSI UNTUK KIRIM NOTIFIKASI TELEGRAM ---
 send_telegram_notification() {
     local status="$1"
     local message="$2"
+    
+    # Buat pesan lengkap
     local full_message="🔔 MySQL Backup Notification
 
 📊 Status: $status
@@ -61,71 +132,86 @@ send_telegram_notification() {
 📁 Database: $DB_NAME
 
 $message"
-
-    # URL encode pesan
-    local encoded_message=$(echo "$full_message" | sed 's/ /%20/g')
     
     # Kirim notifikasi menggunakan curl
     curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
         -d "chat_id=${TELEGRAM_CHAT_ID}" \
-        -d "text=${encoded_message}" \
-        -d "parse_mode=HTML" > /dev/null 2>&1
+        -d "text=${full_message}" \
+        -d "parse_mode=HTML" >> "$LOG_FILE" 2>&1
 }
 
 # --- FUNGSI UNTUK BACKUP DATABASE ---
 backup_database() {
-    log_message "Memulai backup database '$DB_NAME'..."
-
+    local db_name="$1"
+    log_message "INFO" "Memulai backup database '$db_name'..." ""
+    
     # Pastikan direktori backup ada
     mkdir -p "$BACKUP_DIR"
-
+    
     # Buat timestamp untuk nama file
-    TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
-    BACKUP_FILE="${DB_NAME}_${TIMESTAMP}.sql"
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="${db_name}_${TIMESTAMP}.sql"
     FULL_BACKUP_PATH="${BACKUP_DIR}/${BACKUP_FILE}"
-
-    if [ "$DB_NAME" = "ALL_DATABASES" ]; then
-        # Backup semua database
-        mysqldump -u "$DB_USER" -p"$DB_PASS" --all-databases > "$FULL_BACKUP_PATH"
-    else
-        # Backup satu database spesifik
-        mysqldump -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$FULL_BACKUP_PATH"
-    fi
-
+    
+    # Backup database
+    mysqldump -u "$DB_USER" -p"$DB_PASS" "$db_name" > "$FULL_BACKUP_PATH"
+    
     # Cek apakah perintah mysqldump berhasil
     if [ $? -eq 0 ]; then
-        log_message "Backup database berhasil dibuat: '$FULL_BACKUP_PATH'"
+        log_message "INFO" "Backup database berhasil dibuat" "file=$FULL_BACKUP_PATH"
         return 0
     else
-        log_message "ERROR: Backup database gagal!"
+        log_message "ERROR" "Backup database gagal" "database=$db_name"
         return 1
     fi
 }
 
-# --- FUNGSI UNTUK KOMPRESI MENGGUNAKAN 7Z ---
-compress_backup() {
-    log_message "Memulai kompresi file backup..."
-
-    # Nama file archive 7z
-    ARCHIVE_FILE="${DB_NAME}_${TIMESTAMP}.7z"
+# --- FUNGSI UNTUK BACKUP MULTIPLE DATABASES ---
+backup_multiple_databases() {
+    log_message "INFO" "Memulai backup multiple databases..." ""
+    
+    # Buat timestamp untuk nama file
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    ARCHIVE_FILE="mysql_backup_${TIMESTAMP}.7z"
     FULL_ARCHIVE_PATH="${BACKUP_DIR}/${ARCHIVE_FILE}"
-
-    # Parameter kompresi 7z:
-    # a      : Tambahkan ke arsip
-    # -t7z   : Tipe arsip 7z
-    # -m0=lzma2: Menggunakan algoritma kompresi LZMA2 (efisien)
-    # -mx=9  : Tingkat kompresi maksimal (0=tanpa kompresi, 9=maksimal)
-    7z a -t7z -m0=lzma2 -mx=9 "$FULL_ARCHIVE_PATH" "$FULL_BACKUP_PATH"
-
-    # Cek apakah perintah 7z berhasil
-    if [ $? -eq 0 ]; then
-        log_message "Kompresi berhasil. File archive: '$FULL_ARCHIVE_PATH'"
-        # Hapus file .sql asli setelah berhasil dikompresi untuk menghemat ruang
-        rm "$FULL_BACKUP_PATH"
-        log_message "File SQL asli ('$BACKUP_FILE') telah dihapus."
-        return 0
+    
+    # Backup setiap database
+    local success=true
+    if [ "$DB_NAME" = "ALL_DATABASES" ]; then
+        # Dapatkan daftar semua database
+        databases=$(mysql -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW DATABASES" | grep -v "information_schema\|performance_schema\|mysql\|sys")
+        for db in $databases; do
+            backup_database "$db"
+            if [ $? -ne 0 ]; then
+                success=false
+            fi
+        done
     else
-        log_message "ERROR: Kompresi gagal!"
+        # Backup database yang ditentukan
+        IFS=',' read -ra DB_ARRAY <<< "$DB_NAME"
+        for db in "${DB_ARRAY[@]}"; do
+            backup_database "$db"
+            if [ $? -ne 0 ]; then
+                success=false
+            fi
+        done
+    fi
+    
+    # Kompres semua file SQL ke satu archive
+    if [ "$success" = true ]; then
+        7z a -t7z -m0=lzma2 -mx=9 "$FULL_ARCHIVE_PATH" "${BACKUP_DIR}/*_${TIMESTAMP}.sql"
+        if [ $? -eq 0 ]; then
+            log_message "INFO" "Kompresi berhasil" "archive=$FULL_ARCHIVE_PATH"
+            # Hapus file SQL individual
+            rm "${BACKUP_DIR}/*_${TIMESTAMP}.sql"
+            log_message "INFO" "File SQL individual telah dihapus" ""
+            return 0
+        else
+            log_message "ERROR" "Kompresi gagal" ""
+            return 1
+        fi
+    else
+        log_message "ERROR" "Beberapa database gagal dibackup" ""
         return 1
     fi
 }
@@ -133,15 +219,15 @@ compress_backup() {
 # --- FUNGSI UNTUK ROTASI BACKUP ---
 clean_old_backups() {
     if [ "$RETENTION_DAYS" -gt 0 ]; then
-        log_message "Menghapus backup yang lebih lama dari $RETENTION_DAYS hari..."
+        log_message "INFO" "Menghapus backup yang lebih lama dari $RETENTION_DAYS hari..." ""
         find "$BACKUP_DIR" -name "*.7z" -type f -mtime +$RETENTION_DAYS -delete
         if [ $? -eq 0 ]; then
-            log_message "Pembersihan backup lama selesai."
+            log_message "INFO" "Pembersihan backup lama selesai." ""
         else
-            log_message "PERINGATAN: Gagal membersihkan backup lama. Periksa izin atau path."
+            log_message "WARNING" "Gagal membersihkan backup lama. Periksa izin atau path." ""
         fi
     else
-        log_message "Rotasi backup dinonaktifkan (RETENTION_DAYS = 0)."
+        log_message "INFO" "Rotasi backup dinonaktifkan (RETENTION_DAYS = 0)." ""
     fi
 }
 
@@ -151,7 +237,7 @@ upload_to_cloud() {
     local file_name=$(basename "$file_path")
     
     if [ "$ENABLE_CLOUD_BACKUP" = "true" ]; then
-        log_message "Memulai upload ke cloud storage..."
+        log_message "INFO" "Memulai upload ke cloud storage..." ""
         
         case "$CLOUD_PROVIDER" in
             "aws_s3")
@@ -161,11 +247,11 @@ upload_to_cloud() {
                     --storage-class STANDARD_IA  # Menggunakan storage class yang lebih murah
                 
                 if [ $? -eq 0 ]; then
-                    log_message "Upload ke AWS S3 berhasil"
+                    log_message "INFO" "Upload ke AWS S3 berhasil" ""
                     send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke AWS S3"
                     return 0
                 else
-                    log_message "ERROR: Upload ke AWS S3 gagal"
+                    log_message "ERROR" "Upload ke AWS S3 gagal" ""
                     send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke AWS S3"
                     return 1
                 fi
@@ -176,11 +262,11 @@ upload_to_cloud() {
                 rclone copy "$file_path" "${RCLONE_REMOTE}:mysql_backups/"
                 
                 if [ $? -eq 0 ]; then
-                    log_message "Upload ke Google Drive berhasil"
+                    log_message "INFO" "Upload ke Google Drive berhasil" ""
                     send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke Google Drive"
                     return 0
                 else
-                    log_message "ERROR: Upload ke Google Drive gagal"
+                    log_message "ERROR" "Upload ke Google Drive gagal" ""
                     send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke Google Drive"
                     return 1
                 fi
@@ -191,11 +277,11 @@ upload_to_cloud() {
                 ./dropbox_uploader.sh upload "$file_path" "/mysql_backups/"
                 
                 if [ $? -eq 0 ]; then
-                    log_message "Upload ke Dropbox berhasil"
+                    log_message "INFO" "Upload ke Dropbox berhasil" ""
                     send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke Dropbox"
                     return 0
                 else
-                    log_message "ERROR: Upload ke Dropbox gagal"
+                    log_message "ERROR" "Upload ke Dropbox gagal" ""
                     send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke Dropbox"
                     return 1
                 fi
@@ -206,23 +292,23 @@ upload_to_cloud() {
                 b2 upload-file "$AWS_BUCKET" "$file_path" "mysql_backups/${file_name}"
                 
                 if [ $? -eq 0 ]; then
-                    log_message "Upload ke Backblaze B2 berhasil"
+                    log_message "INFO" "Upload ke Backblaze B2 berhasil" ""
                     send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke Backblaze B2"
                     return 0
                 else
-                    log_message "ERROR: Upload ke Backblaze B2 gagal"
+                    log_message "ERROR" "Upload ke Backblaze B2 gagal" ""
                     send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke Backblaze B2"
                     return 1
                 fi
                 ;;
                 
             *)
-                log_message "ERROR: Provider cloud tidak dikenali"
+                log_message "ERROR" "Provider cloud tidak dikenali" ""
                 return 1
                 ;;
         esac
     else
-        log_message "Cloud backup dinonaktifkan"
+        log_message "INFO" "Cloud backup dinonaktifkan" ""
         return 0
     fi
 }
@@ -230,30 +316,32 @@ upload_to_cloud() {
 # ==============================================================================
 # --- JALANKAN PROSES BACKUP ---
 # ==============================================================================
-log_message "----------------------------------------------------"
-log_message "Memulai proses backup MySQL..."
+# Buat direktori log jika belum ada
+if [ "$ENABLE_LOGGING" = "true" ]; then
+    mkdir -p "$LOG_DIR"
+    rotate_logs
+fi
+
+log_message "INFO" "----------------------------------------------------" ""
+log_message "INFO" "Memulai proses backup MySQL..." ""
 
 # Kirim notifikasi mulai backup
 send_telegram_notification "STARTED" "Memulai proses backup database..."
 
 # Panggil fungsi backup database
-if backup_database; then
-    # Jika backup database berhasil, lanjutkan dengan kompresi
-    if compress_backup; then
-        log_message "Proses backup dan kompresi selesai dengan sukses."
-        send_telegram_notification "SUCCESS" "✅ Backup dan kompresi selesai dengan sukses."
-        
-        # Upload ke cloud storage
-        upload_to_cloud "$FULL_ARCHIVE_PATH"
-        
-        clean_old_backups # Panggil fungsi pembersihan setelah backup baru dibuat
-    else
-        log_message "Proses backup selesai dengan ERROR pada kompresi."
-        send_telegram_notification "ERROR" "❌ Gagal pada proses kompresi backup."
-    fi
+backup_multiple_databases
+
+if [ $? -eq 0 ]; then
+    log_message "INFO" "Proses backup dan kompresi selesai dengan sukses." ""
+    send_telegram_notification "SUCCESS" "✅ Backup dan kompresi selesai dengan sukses."
+    
+    # Upload ke cloud storage
+    upload_to_cloud "$FULL_ARCHIVE_PATH"
+    
+    clean_old_backups
 else
-    log_message "Proses backup selesai dengan ERROR pada backup database."
+    log_message "ERROR" "Proses backup selesai dengan ERROR." ""
     send_telegram_notification "ERROR" "❌ Gagal pada proses backup database."
 fi
 
-log_message "----------------------------------------------------" 
+log_message "INFO" "----------------------------------------------------" "" 

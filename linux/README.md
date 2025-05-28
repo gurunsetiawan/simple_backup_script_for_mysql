@@ -11,6 +11,7 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
 - Notifikasi real-time melalui Telegram
 - Upload otomatis ke cloud storage (AWS S3, Google Drive, Dropbox, Backblaze B2)
 - Pengiriman file backup langsung ke Telegram (opsional, dinonaktifkan secara default)
+- Logging otomatis ke file dengan format tanggal
 
 ## Persyaratan
 
@@ -100,6 +101,9 @@ pip install b2
    
    # Konfigurasi Google Drive
    RCLONE_REMOTE="gdrive"  # Nama remote rclone yang dikonfigurasi
+   
+   # Konfigurasi Logging
+   LOG_DIR="/var/log/mysql_backup"  # Direktori untuk menyimpan log file
    ```
 
 2. Konfigurasi Telegram Bot:
@@ -253,19 +257,22 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Gunakan lokasi terpisah dari database
    - Pertimbangkan untuk menggunakan drive terpisah
 
-3. **Testing**:
+3. **Logging**:
+   - Log file disimpan di `/var/log/mysql_backup`
+   - Format nama file: `mysql_backup_YYYYMMDD.log`
+   - Log berisi timestamp, status, dan detail setiap operasi
+   - Log mencakup output dari semua perintah (mysqldump, 7z, rclone, dll)
+   - Direktori log akan dibuat otomatis jika belum ada
+   - Pastikan ada ruang disk yang cukup untuk log
+   - Pertimbangkan untuk mengatur rotasi log menggunakan logrotate
+   - Pastikan permission log file sesuai (biasanya 644)
+
+4. **Testing**:
    - Test proses restore secara berkala
    - Verifikasi integritas backup
    - Test notifikasi Telegram
    - Test upload ke cloud storage
    - Test pengiriman file ke Telegram
-
-4. **Monitoring**:
-   - Periksa log file secara berkala
-   - Monitor penggunaan ruang disk
-   - Monitor biaya cloud storage
-   - Set up monitoring untuk notifikasi error
-   - Monitor ukuran file yang dikirim ke Telegram
 
 5. **Cloud Storage**:
    - Pilih storage class yang sesuai dengan kebutuhan
