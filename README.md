@@ -85,7 +85,7 @@ In "Start in (optional)", enter the directory where backup_mysql.bat is located 
 After creation, right-click the task, select Properties, check "Run with highest privileges", and optionally select "Run whether user is logged on or not" (you'll need to provide Windows user credentials).
 
 
-###💡 Important Notes ###
+### 💡 Important Notes ###
 
 Security: Storing passwords directly in scripts carries a risk. Ensure strict file permissions for your script. For production, consider more secure methods like MySQL's .my.cnf file (Linux) or environment variables.
 Backup Location: Ideally, store backups on a different disk or even off-site (e.g., cloud storage) to protect against data loss from hardware failure.
