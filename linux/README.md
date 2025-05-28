@@ -10,11 +10,12 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
 - Pembersihan otomatis backup lama berdasarkan kebijakan retensi
 - Notifikasi real-time melalui Telegram
 - Upload otomatis ke cloud storage (AWS S3, Google Drive, Dropbox, Backblaze B2)
+- Pengiriman file backup langsung ke Telegram (opsional, dinonaktifkan secara default)
 
 ## Persyaratan
 
 1. MySQL Server dan mysqldump
-2. p7zip-full untuk kompresi
+2. 7-Zip untuk kompresi
 3. curl untuk notifikasi Telegram
 4. Cloud storage tools (pilih salah satu):
    - AWS CLI untuk AWS S3
@@ -24,40 +25,56 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
 
 ### Instalasi Dependensi
 
-#### Debian/Ubuntu:
+#### Debian/Ubuntu
 ```bash
+# MySQL
 sudo apt-get update
-sudo apt-get install mysql-client p7zip-full curl
+sudo apt-get install mysql-client
 
-# Untuk AWS S3
-pip install awscli
+# 7-Zip
+sudo apt-get install p7zip-full
 
-# Untuk Google Drive
+# curl
+sudo apt-get install curl
+
+# Cloud Storage Tools
+# AWS CLI
+sudo apt-get install awscli
+
+# rclone (Google Drive)
 curl https://rclone.org/install.sh | sudo bash
 
-# Untuk Dropbox
+# Dropbox Uploader
 wget https://raw.githubusercontent.com/andreafabrizi/Dropbox-Uploader/master/dropbox_uploader.sh
 chmod +x dropbox_uploader.sh
 
-# Untuk Backblaze B2
+# B2 CLI
 pip install b2
 ```
 
-#### CentOS/RHEL:
+#### CentOS/RHEL
 ```bash
-sudo yum install mysql p7zip p7zip-plugins curl
+# MySQL
+sudo yum install mysql
 
-# Untuk AWS S3
-pip install awscli
+# 7-Zip
+sudo yum install p7zip p7zip-plugins
 
-# Untuk Google Drive
+# curl
+sudo yum install curl
+
+# Cloud Storage Tools
+# AWS CLI
+sudo yum install awscli
+
+# rclone (Google Drive)
 curl https://rclone.org/install.sh | sudo bash
 
-# Untuk Dropbox
+# Dropbox Uploader
 wget https://raw.githubusercontent.com/andreafabrizi/Dropbox-Uploader/master/dropbox_uploader.sh
 chmod +x dropbox_uploader.sh
 
-# Untuk Backblaze B2
+# B2 CLI
 pip install b2
 ```
 
@@ -67,13 +84,15 @@ pip install b2
 
    ```bash
    # Konfigurasi Database
-   MYSQL_USER="your_username"
-   MYSQL_PASSWORD="your_password"
-   MYSQL_DATABASE="your_database"  # Atau "all" untuk backup semua database
+   DB_USER="your_username"
+   DB_PASS="your_password"
+   DB_NAME="your_database"  # Atau "ALL_DATABASES" untuk backup semua database
    
    # Konfigurasi Telegram
    TELEGRAM_BOT_TOKEN="your_bot_token"
    TELEGRAM_CHAT_ID="your_chat_id"
+   ENABLE_TELEGRAM_FILE=true  # Set ke true untuk mengirim file ke Telegram
+   TELEGRAM_FILE_SIZE_LIMIT=50  # Ukuran maksimal file dalam MB (default: 50MB)
    
    # Konfigurasi Cloud Storage
    ENABLE_CLOUD_BACKUP=true
@@ -84,7 +103,25 @@ pip install b2
    AWS_REGION="ap-southeast-1"
    ```
 
-2. Konfigurasi Cloud Storage:
+2. Konfigurasi Telegram Bot:
+
+   a. Buat Bot Telegram:
+   - Buka Telegram dan cari "@BotFather"
+   - Kirim perintah `/newbot`
+   - Ikuti instruksi untuk membuat bot baru
+   - Simpan BOT_TOKEN yang diberikan
+
+   b. Dapatkan Chat ID:
+   - Kirim pesan ke bot baru Anda
+   - Buka browser dan akses: `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates`
+   - Cari `"chat":{"id":` dalam response
+
+   c. Konfigurasi Bot untuk File:
+   - Pastikan bot memiliki izin untuk mengirim file
+   - Bot harus memiliki akses ke chat/group
+   - Untuk group, tambahkan bot sebagai admin
+
+3. Konfigurasi Cloud Storage:
 
    #### AWS S3
    ```bash
@@ -102,7 +139,7 @@ pip install b2
 
    #### Dropbox
    ```bash
-   ./dropbox_uploader.sh
+   # Edit file dropbox_uploader.sh
    # Masukkan Dropbox API token
    ```
 
@@ -112,28 +149,30 @@ pip install b2
    # Masukkan account ID dan application key
    ```
 
-3. Berikan izin eksekusi pada script:
+4. Berikan izin eksekusi pada script:
    ```bash
    chmod +x mysql_backup.sh
    ```
 
-4. Jalankan script secara manual untuk testing:
+5. Jalankan script secara manual untuk testing:
    ```bash
    ./mysql_backup.sh
    ```
-   Anda akan menerima notifikasi Telegram tentang status backup.
+   Anda akan menerima notifikasi Telegram tentang status backup dan file backup (jika diaktifkan).
 
 ## Otomatisasi
 
-Untuk menjalankan backup secara otomatis, tambahkan ke crontab:
+Untuk menjalankan backup secara otomatis, gunakan crontab:
 
-```bash
-# Edit crontab
-crontab -e
+1. Buka crontab editor:
+   ```bash
+   crontab -e
+   ```
 
-# Tambahkan baris berikut untuk menjalankan backup setiap hari jam 2 pagi
-0 2 * * * /path/to/mysql_backup.sh
-```
+2. Tambahkan baris berikut untuk menjalankan backup setiap hari jam 2 pagi:
+   ```bash
+   0 2 * * * /path/to/mysql_backup.sh
+   ```
 
 ## Notifikasi Telegram
 
@@ -159,7 +198,14 @@ Script akan mengirim notifikasi untuk berbagai status:
    Lokasi: s3://your-bucket/mysql_backups/your_database_20240220_020000.7z
    ```
 
-4. Error:
+4. File dikirim ke Telegram:
+   ```
+   📤 File backup berhasil dikirim ke Telegram
+   Nama file: your_database_20240220_020000.7z
+   Ukuran: 1.2 GB
+   ```
+
+5. Error:
    ```
    ❌ Gagal pada proses backup database.
    Error: Access denied for user 'your_username'@'localhost'
@@ -172,29 +218,38 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Gunakan file konfigurasi terpisah untuk kredensial
    - Batasi akses ke script dengan permission yang tepat
    - Enkripsi kredensial cloud storage
+   - Jaga kerahasiaan token bot Telegram
 
 2. **Lokasi Backup**:
    - Pastikan direktori backup memiliki ruang yang cukup
    - Gunakan lokasi terpisah dari database
-   - Pertimbangkan untuk menggunakan mount point terpisah
+   - Pertimbangkan untuk menggunakan drive terpisah
 
 3. **Testing**:
    - Test proses restore secara berkala
    - Verifikasi integritas backup
    - Test notifikasi Telegram
    - Test upload ke cloud storage
+   - Test pengiriman file ke Telegram
 
 4. **Monitoring**:
    - Periksa log file secara berkala
    - Monitor penggunaan ruang disk
    - Monitor biaya cloud storage
    - Set up monitoring untuk notifikasi error
+   - Monitor ukuran file yang dikirim ke Telegram
 
 5. **Cloud Storage**:
    - Pilih storage class yang sesuai dengan kebutuhan
    - Atur lifecycle policy untuk menghemat biaya
    - Enkripsi data sebelum upload
    - Verifikasi upload secara berkala
+
+6. **Telegram File Upload**:
+   - Perhatikan batas ukuran file (50MB)
+   - Pastikan koneksi internet stabil
+   - Monitor penggunaan bandwidth
+   - Pertimbangkan kompresi untuk file besar
 
 ## Troubleshooting
 
@@ -204,15 +259,25 @@ Script akan mengirim notifikasi untuk berbagai status:
 
 2. **Error kompresi**:
    - Periksa ruang disk yang tersedia
-   - Pastikan p7zip terinstal dengan benar
+   - Pastikan 7-Zip terinstal dengan benar
+   - Periksa path ke 7z
 
 3. **Error Telegram**:
    - Periksa token bot dan chat ID
    - Pastikan bot sudah diaktifkan
    - Periksa koneksi internet
+   - Pastikan bot memiliki izin untuk mengirim file
+   - Periksa batas ukuran file
 
 4. **Error Cloud Storage**:
    - Periksa kredensial cloud storage
    - Pastikan bucket/folder sudah dibuat
    - Periksa permission dan policy
-   - Verifikasi koneksi internet 
+   - Verifikasi koneksi internet
+   - Pastikan tools cloud storage terinstal dengan benar
+
+5. **Error File Upload ke Telegram**:
+   - Periksa ukuran file (maksimal 50MB)
+   - Pastikan koneksi internet stabil
+   - Periksa izin bot untuk mengirim file
+   - Coba kompresi file jika terlalu besar 

@@ -18,8 +18,10 @@ set DB_NAME=your_database_name         :: Nama database yang akan dibackup (misa
                                       :: Atau gunakan "ALL_DATABASES" untuk backup semua database
 
 :: --- KONFIGURASI TELEGRAM ---
-set TELEGRAM_BOT_TOKEN=your_bot_token_here    :: Token bot Telegram Anda
-set TELEGRAM_CHAT_ID=your_chat_id_here        :: Chat ID untuk notifikasi
+set TELEGRAM_BOT_TOKEN=your_bot_token
+set TELEGRAM_CHAT_ID=your_chat_id
+set ENABLE_TELEGRAM_FILE=false  :: Default: false, set ke true jika ingin mengirim file ke Telegram
+set TELEGRAM_FILE_SIZE_LIMIT=50  :: Ukuran maksimal file dalam MB (default: 50MB)
 
 :: --- KONFIGURASI DIREKTORI & PATH APLIKASI ---
 :: Direktori tempat file backup akan disimpan.

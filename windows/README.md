@@ -10,6 +10,7 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
 - Pembersihan otomatis backup lama berdasarkan kebijakan retensi
 - Notifikasi real-time melalui Telegram
 - Upload otomatis ke cloud storage (AWS S3, Google Drive, Dropbox, Backblaze B2)
+- Pengiriman file backup langsung ke Telegram (opsional, dinonaktifkan secara default)
 
 ## Persyaratan
 
@@ -80,6 +81,8 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
    :: Konfigurasi Telegram
    set TELEGRAM_BOT_TOKEN=your_bot_token
    set TELEGRAM_CHAT_ID=your_chat_id
+   set ENABLE_TELEGRAM_FILE=true  :: Set ke true untuk mengirim file ke Telegram
+   set TELEGRAM_FILE_SIZE_LIMIT=50  :: Ukuran maksimal file dalam MB (default: 50MB)
    
    :: Konfigurasi Cloud Storage
    set ENABLE_CLOUD_BACKUP=true
@@ -90,7 +93,25 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
    set AWS_REGION=ap-southeast-1
    ```
 
-2. Konfigurasi Cloud Storage:
+2. Konfigurasi Telegram Bot:
+
+   a. Buat Bot Telegram:
+   - Buka Telegram dan cari "@BotFather"
+   - Kirim perintah `/newbot`
+   - Ikuti instruksi untuk membuat bot baru
+   - Simpan BOT_TOKEN yang diberikan
+
+   b. Dapatkan Chat ID:
+   - Kirim pesan ke bot baru Anda
+   - Buka browser dan akses: `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates`
+   - Cari `"chat":{"id":` dalam response
+
+   c. Konfigurasi Bot untuk File:
+   - Pastikan bot memiliki izin untuk mengirim file
+   - Bot harus memiliki akses ke chat/group
+   - Untuk group, tambahkan bot sebagai admin
+
+3. Konfigurasi Cloud Storage:
 
    #### AWS S3
    ```powershell
@@ -118,11 +139,11 @@ Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifik
    # Masukkan account ID dan application key
    ```
 
-3. Jalankan script secara manual untuk testing:
+4. Jalankan script secara manual untuk testing:
    ```batch
    mysql_backup.bat
    ```
-   Anda akan menerima notifikasi Telegram tentang status backup.
+   Anda akan menerima notifikasi Telegram tentang status backup dan file backup (jika diaktifkan).
 
 ## Otomatisasi
 
@@ -161,7 +182,14 @@ Script akan mengirim notifikasi untuk berbagai status:
    Lokasi: s3://your-bucket/mysql_backups/your_database_20240220_020000.7z
    ```
 
-4. Error:
+4. File dikirim ke Telegram:
+   ```
+   📤 File backup berhasil dikirim ke Telegram
+   Nama file: your_database_20240220_020000.7z
+   Ukuran: 1.2 GB
+   ```
+
+5. Error:
    ```
    ❌ Gagal pada proses backup database.
    Error: Access denied for user 'your_username'@'localhost'
@@ -174,6 +202,7 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Gunakan file konfigurasi terpisah untuk kredensial
    - Batasi akses ke script dengan permission yang tepat
    - Enkripsi kredensial cloud storage
+   - Jaga kerahasiaan token bot Telegram
 
 2. **Lokasi Backup**:
    - Pastikan direktori backup memiliki ruang yang cukup
@@ -185,18 +214,26 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Verifikasi integritas backup
    - Test notifikasi Telegram
    - Test upload ke cloud storage
+   - Test pengiriman file ke Telegram
 
 4. **Monitoring**:
    - Periksa log file secara berkala
    - Monitor penggunaan ruang disk
    - Monitor biaya cloud storage
    - Set up monitoring untuk notifikasi error
+   - Monitor ukuran file yang dikirim ke Telegram
 
 5. **Cloud Storage**:
    - Pilih storage class yang sesuai dengan kebutuhan
    - Atur lifecycle policy untuk menghemat biaya
    - Enkripsi data sebelum upload
    - Verifikasi upload secara berkala
+
+6. **Telegram File Upload**:
+   - Perhatikan batas ukuran file (50MB)
+   - Pastikan koneksi internet stabil
+   - Monitor penggunaan bandwidth
+   - Pertimbangkan kompresi untuk file besar
 
 ## Troubleshooting
 
@@ -213,6 +250,8 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Periksa token bot dan chat ID
    - Pastikan bot sudah diaktifkan
    - Periksa koneksi internet
+   - Pastikan bot memiliki izin untuk mengirim file
+   - Periksa batas ukuran file
 
 4. **Error Cloud Storage**:
    - Periksa kredensial cloud storage
@@ -220,3 +259,9 @@ Script akan mengirim notifikasi untuk berbagai status:
    - Periksa permission dan policy
    - Verifikasi koneksi internet
    - Pastikan tools cloud storage terinstal dengan benar
+
+5. **Error File Upload ke Telegram**:
+   - Periksa ukuran file (maksimal 50MB)
+   - Pastikan koneksi internet stabil
+   - Periksa izin bot untuk mengirim file
+   - Coba kompresi file jika terlalu besar
