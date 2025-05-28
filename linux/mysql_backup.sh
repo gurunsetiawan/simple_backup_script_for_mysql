@@ -29,6 +29,17 @@ BACKUP_DIR="/var/backups/mysql"      # Contoh: /var/backups/mysql
 # Set ke 0 atau komentar baris ini jika tidak ingin menghapus backup lama.
 RETENTION_DAYS=7                     # Contoh: 7 hari
 
+# --- KONFIGURASI CLOUD STORAGE ---
+# Set ke "true" untuk mengaktifkan upload ke cloud
+ENABLE_CLOUD_BACKUP=true
+
+# Pilih provider cloud (aws_s3, google_drive, dropbox, backblaze_b2)
+CLOUD_PROVIDER="aws_s3"
+
+# Konfigurasi AWS S3
+AWS_BUCKET="your-bucket-name"
+AWS_REGION="ap-southeast-1"  # Sesuaikan dengan region Anda
+
 # --- FUNGSI UNTUK LOGGING ---
 log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $*"
@@ -129,6 +140,88 @@ clean_old_backups() {
     fi
 }
 
+# --- FUNGSI UNTUK UPLOAD KE CLOUD ---
+upload_to_cloud() {
+    local file_path="$1"
+    local file_name=$(basename "$file_path")
+    
+    if [ "$ENABLE_CLOUD_BACKUP" = "true" ]; then
+        log_message "Memulai upload ke cloud storage..."
+        
+        case "$CLOUD_PROVIDER" in
+            "aws_s3")
+                # Upload ke AWS S3
+                aws s3 cp "$file_path" "s3://${AWS_BUCKET}/mysql_backups/${file_name}" \
+                    --region "$AWS_REGION" \
+                    --storage-class STANDARD_IA  # Menggunakan storage class yang lebih murah
+                
+                if [ $? -eq 0 ]; then
+                    log_message "Upload ke AWS S3 berhasil"
+                    send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke AWS S3"
+                    return 0
+                else
+                    log_message "ERROR: Upload ke AWS S3 gagal"
+                    send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke AWS S3"
+                    return 1
+                fi
+                ;;
+                
+            "google_drive")
+                # Upload ke Google Drive menggunakan rclone
+                rclone copy "$file_path" "remote:mysql_backups/"
+                
+                if [ $? -eq 0 ]; then
+                    log_message "Upload ke Google Drive berhasil"
+                    send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke Google Drive"
+                    return 0
+                else
+                    log_message "ERROR: Upload ke Google Drive gagal"
+                    send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke Google Drive"
+                    return 1
+                fi
+                ;;
+                
+            "dropbox")
+                # Upload ke Dropbox
+                ./dropbox_uploader.sh upload "$file_path" "/mysql_backups/"
+                
+                if [ $? -eq 0 ]; then
+                    log_message "Upload ke Dropbox berhasil"
+                    send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke Dropbox"
+                    return 0
+                else
+                    log_message "ERROR: Upload ke Dropbox gagal"
+                    send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke Dropbox"
+                    return 1
+                fi
+                ;;
+                
+            "backblaze_b2")
+                # Upload ke Backblaze B2
+                b2 upload-file "$AWS_BUCKET" "$file_path" "mysql_backups/${file_name}"
+                
+                if [ $? -eq 0 ]; then
+                    log_message "Upload ke Backblaze B2 berhasil"
+                    send_telegram_notification "CLOUD_SUCCESS" "✅ Backup berhasil diupload ke Backblaze B2"
+                    return 0
+                else
+                    log_message "ERROR: Upload ke Backblaze B2 gagal"
+                    send_telegram_notification "CLOUD_ERROR" "❌ Gagal mengupload backup ke Backblaze B2"
+                    return 1
+                fi
+                ;;
+                
+            *)
+                log_message "ERROR: Provider cloud tidak dikenali"
+                return 1
+                ;;
+        esac
+    else
+        log_message "Cloud backup dinonaktifkan"
+        return 0
+    fi
+}
+
 # ==============================================================================
 # --- JALANKAN PROSES BACKUP ---
 # ==============================================================================
@@ -144,6 +237,10 @@ if backup_database; then
     if compress_backup; then
         log_message "Proses backup dan kompresi selesai dengan sukses."
         send_telegram_notification "SUCCESS" "✅ Backup dan kompresi selesai dengan sukses."
+        
+        # Upload ke cloud storage
+        upload_to_cloud "$FULL_ARCHIVE_PATH"
+        
         clean_old_backups # Panggil fungsi pembersihan setelah backup baru dibuat
     else
         log_message "Proses backup selesai dengan ERROR pada kompresi."

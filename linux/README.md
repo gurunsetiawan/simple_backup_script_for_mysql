@@ -1,141 +1,218 @@
 # MySQL Backup Script for Linux
 
-Script ini menyediakan cara mudah untuk melakukan backup otomatis database MySQL ke dalam format 7z, termasuk pembersihan backup lama dan notifikasi Telegram.
+Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifikasi Telegram.
 
-## 🚀 Fitur
+## Fitur
 
-- Backup Otomatis: Menggunakan mysqldump untuk membuat backup database
-- Kompresi Efisien: Mengkompresi backup ke format 7z untuk menghemat ruang
-- Penamaan Berdasarkan Tanggal: Backup diberi nama dengan format YYYY-MM-DD_HH-MM-SS
-- Cakupan Fleksibel: Backup satu database atau semua database
-- Pembersihan Otomatis: Menghapus backup lama secara otomatis
-- Notifikasi Telegram: Notifikasi real-time tentang status backup
+- Backup otomatis database MySQL menggunakan mysqldump
+- Kompresi file backup ke format 7z untuk menghemat ruang
+- Opsi untuk backup database tunggal atau semua database
+- Pembersihan otomatis backup lama berdasarkan kebijakan retensi
+- Notifikasi real-time melalui Telegram
+- Upload otomatis ke cloud storage (AWS S3, Google Drive, Dropbox, Backblaze B2)
 
-## 🛠️ Persyaratan
+## Persyaratan
 
-- MySQL Server: Tool mysqldump (biasanya sudah termasuk dalam instalasi MySQL)
-- 7-Zip: Package p7zip-full
-  ```bash
-  # Debian/Ubuntu
-  sudo apt-get install p7zip-full
+1. MySQL Server dan mysqldump
+2. p7zip-full untuk kompresi
+3. curl untuk notifikasi Telegram
+4. Cloud storage tools (pilih salah satu):
+   - AWS CLI untuk AWS S3
+   - rclone untuk Google Drive
+   - Dropbox Uploader untuk Dropbox
+   - B2 CLI untuk Backblaze B2
 
-  # CentOS/RHEL
-  sudo yum install p7zip p7zip-plugins
-  ```
-- curl: Untuk mengirim notifikasi Telegram
-  ```bash
-  # Debian/Ubuntu
-  sudo apt-get install curl
+### Instalasi Dependensi
 
-  # CentOS/RHEL
-  sudo yum install curl
-  ```
+#### Debian/Ubuntu:
+```bash
+sudo apt-get update
+sudo apt-get install mysql-client p7zip-full curl
 
-## ⚙️ Pengaturan Cepat
+# Untuk AWS S3
+pip install awscli
 
-1. Konfigurasi Script
-   Buka script dalam editor teks dan sesuaikan variabel berikut:
+# Untuk Google Drive
+curl https://rclone.org/install.sh | sudo bash
+
+# Untuk Dropbox
+wget https://raw.githubusercontent.com/andreafabrizi/Dropbox-Uploader/master/dropbox_uploader.sh
+chmod +x dropbox_uploader.sh
+
+# Untuk Backblaze B2
+pip install b2
+```
+
+#### CentOS/RHEL:
+```bash
+sudo yum install mysql p7zip p7zip-plugins curl
+
+# Untuk AWS S3
+pip install awscli
+
+# Untuk Google Drive
+curl https://rclone.org/install.sh | sudo bash
+
+# Untuk Dropbox
+wget https://raw.githubusercontent.com/andreafabrizi/Dropbox-Uploader/master/dropbox_uploader.sh
+chmod +x dropbox_uploader.sh
+
+# Untuk Backblaze B2
+pip install b2
+```
+
+## Konfigurasi Cepat
+
+1. Edit file `mysql_backup.sh` dan sesuaikan konfigurasi berikut:
+
    ```bash
-   DB_USER="your_mysql_username"        # Username MySQL Anda
-   DB_PASS="your_mysql_password"        # Password MySQL Anda
-   DB_NAME="your_database_name"         # Nama database atau "ALL_DATABASES"
-   BACKUP_DIR="/var/backups/mysql"      # Direktori backup
-   RETENTION_DAYS=7                     # Jumlah hari untuk menyimpan backup
+   # Konfigurasi Database
+   MYSQL_USER="your_username"
+   MYSQL_PASSWORD="your_password"
+   MYSQL_DATABASE="your_database"  # Atau "all" untuk backup semua database
+   
+   # Konfigurasi Telegram
+   TELEGRAM_BOT_TOKEN="your_bot_token"
+   TELEGRAM_CHAT_ID="your_chat_id"
+   
+   # Konfigurasi Cloud Storage
+   ENABLE_CLOUD_BACKUP=true
+   CLOUD_PROVIDER="aws_s3"  # Pilih: aws_s3, google_drive, dropbox, backblaze_b2
+   
+   # Konfigurasi AWS S3
+   AWS_BUCKET="your-bucket-name"
+   AWS_REGION="ap-southeast-1"
    ```
 
-2. Konfigurasi Notifikasi Telegram
-   a. Buat Bot Telegram:
-      - Buka Telegram dan cari "@BotFather"
-      - Kirim perintah `/newbot`
-      - Ikuti instruksi untuk membuat bot baru
-      - Simpan BOT_TOKEN yang diberikan
+2. Konfigurasi Cloud Storage:
 
-   b. Dapatkan Chat ID:
-      - Kirim pesan ke bot baru Anda
-      - Buka browser dan akses: `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates`
-      - Cari `"chat":{"id":` dalam response
-
-   c. Update Konfigurasi Script:
-      ```bash
-      TELEGRAM_BOT_TOKEN="your_bot_token_here"
-      TELEGRAM_CHAT_ID="your_chat_id_here"
-      ```
-
-3. Test Manual
+   #### AWS S3
    ```bash
-   # Berikan izin eksekusi
-   chmod +x mysql_backup.sh
+   aws configure
+   # Masukkan AWS Access Key ID
+   # Masukkan AWS Secret Access Key
+   # Masukkan default region
+   ```
 
-   # Jalankan script
+   #### Google Drive
+   ```bash
+   rclone config
+   # Ikuti petunjuk untuk mengkonfigurasi Google Drive
+   ```
+
+   #### Dropbox
+   ```bash
+   ./dropbox_uploader.sh
+   # Masukkan Dropbox API token
+   ```
+
+   #### Backblaze B2
+   ```bash
+   b2 authorize-account
+   # Masukkan account ID dan application key
+   ```
+
+3. Berikan izin eksekusi pada script:
+   ```bash
+   chmod +x mysql_backup.sh
+   ```
+
+4. Jalankan script secara manual untuk testing:
+   ```bash
    ./mysql_backup.sh
    ```
    Anda akan menerima notifikasi Telegram tentang status backup.
 
-4. Jadwalkan Otomatisasi
-   Buka crontab:
-   ```bash
-   crontab -e
+## Otomatisasi
+
+Untuk menjalankan backup secara otomatis, tambahkan ke crontab:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Tambahkan baris berikut untuk menjalankan backup setiap hari jam 2 pagi
+0 2 * * * /path/to/mysql_backup.sh
+```
+
+## Notifikasi Telegram
+
+Script akan mengirim notifikasi untuk berbagai status:
+
+1. Backup dimulai:
    ```
-   Tambahkan baris berikut untuk menjalankan backup setiap hari jam 2 pagi:
+   🔄 Memulai backup database...
+   Database: your_database
+   Waktu: 2024-02-20 02:00:00
    ```
-   0 2 * * * /path/to/mysql_backup.sh >> /var/log/mysql_backup.log 2>&1
+
+2. Backup berhasil:
+   ```
+   ✅ Backup dan kompresi selesai dengan sukses.
+   File: /var/backups/mysql/your_database_20240220_020000.7z
+   Ukuran: 1.2 GB
    ```
 
-## 📱 Notifikasi Telegram
+3. Upload ke cloud berhasil:
+   ```
+   ✅ Backup berhasil diupload ke AWS S3
+   Lokasi: s3://your-bucket/mysql_backups/your_database_20240220_020000.7z
+   ```
 
-Script mengirim notifikasi pada beberapa tahap penting:
+4. Error:
+   ```
+   ❌ Gagal pada proses backup database.
+   Error: Access denied for user 'your_username'@'localhost'
+   ```
 
-1. Mulai Backup:
-```
-🔔 MySQL Backup Notification
+## Catatan Penting
 
-📊 Status: STARTED
-⏰ Time: [Waktu Backup]
-📁 Database: [Nama Database]
+1. **Keamanan**:
+   - Simpan kredensial database dengan aman
+   - Gunakan file konfigurasi terpisah untuk kredensial
+   - Batasi akses ke script dengan permission yang tepat
+   - Enkripsi kredensial cloud storage
 
-Memulai proses backup database...
-```
+2. **Lokasi Backup**:
+   - Pastikan direktori backup memiliki ruang yang cukup
+   - Gunakan lokasi terpisah dari database
+   - Pertimbangkan untuk menggunakan mount point terpisah
 
-2. Backup Sukses:
-```
-🔔 MySQL Backup Notification
+3. **Testing**:
+   - Test proses restore secara berkala
+   - Verifikasi integritas backup
+   - Test notifikasi Telegram
+   - Test upload ke cloud storage
 
-📊 Status: SUCCESS
-⏰ Time: [Waktu Backup]
-📁 Database: [Nama Database]
+4. **Monitoring**:
+   - Periksa log file secara berkala
+   - Monitor penggunaan ruang disk
+   - Monitor biaya cloud storage
+   - Set up monitoring untuk notifikasi error
 
-✅ Backup dan kompresi selesai dengan sukses.
-```
+5. **Cloud Storage**:
+   - Pilih storage class yang sesuai dengan kebutuhan
+   - Atur lifecycle policy untuk menghemat biaya
+   - Enkripsi data sebelum upload
+   - Verifikasi upload secara berkala
 
-3. Backup Error:
-```
-🔔 MySQL Backup Notification
+## Troubleshooting
 
-📊 Status: ERROR
-⏰ Time: [Waktu Backup]
-📁 Database: [Nama Database]
+1. **Error "Access denied"**:
+   - Periksa kredensial MySQL
+   - Pastikan user memiliki hak akses yang cukup
 
-❌ [Pesan Error]
-```
+2. **Error kompresi**:
+   - Periksa ruang disk yang tersedia
+   - Pastikan p7zip terinstal dengan benar
 
-## 💡 Catatan Penting
+3. **Error Telegram**:
+   - Periksa token bot dan chat ID
+   - Pastikan bot sudah diaktifkan
+   - Periksa koneksi internet
 
-- Keamanan:
-  - Menyimpan password dalam script memiliki risiko
-  - Pastikan permission file script aman (chmod 600)
-  - Untuk production, pertimbangkan menggunakan .my.cnf atau environment variables
-  - Jaga kerahasiaan token bot Telegram
-
-- Lokasi Backup:
-  - Idealnya simpan backup di disk berbeda atau off-site
-  - Pertimbangkan cloud storage untuk keamanan tambahan
-
-- Testing:
-  - Test Restore! Backup hanya berguna jika bisa di-restore
-  - Test proses recovery secara berkala
-  - Verifikasi notifikasi Telegram berfungsi
-
-- Monitoring:
-  - Periksa log secara berkala (/var/log/mysql_backup.log)
-  - Monitor notifikasi Telegram
-  - Verifikasi file backup dibuat dan dirotasi dengan benar 
+4. **Error Cloud Storage**:
+   - Periksa kredensial cloud storage
+   - Pastikan bucket/folder sudah dibuat
+   - Periksa permission dan policy
+   - Verifikasi koneksi internet 

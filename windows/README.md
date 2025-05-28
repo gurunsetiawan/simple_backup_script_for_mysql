@@ -1,159 +1,222 @@
 # MySQL Backup Script for Windows
 
-Script ini menyediakan cara mudah untuk melakukan backup otomatis database MySQL ke dalam format 7z, termasuk pembersihan backup lama dan notifikasi Telegram.
+Script otomatis untuk backup database MySQL dengan fitur kompresi 7z dan notifikasi Telegram.
 
-## 🚀 Fitur
+## Fitur
 
-- Backup Otomatis: Menggunakan mysqldump untuk membuat backup database
-- Kompresi Efisien: Mengkompresi backup ke format 7z untuk menghemat ruang
-- Penamaan Berdasarkan Tanggal: Backup diberi nama dengan format YYYY-MM-DD_HH-MM-SS
-- Cakupan Fleksibel: Backup satu database atau semua database
-- Pembersihan Otomatis: Menghapus backup lama secara otomatis
-- Notifikasi Telegram: Notifikasi real-time tentang status backup
+- Backup otomatis database MySQL menggunakan mysqldump
+- Kompresi file backup ke format 7z untuk menghemat ruang
+- Opsi untuk backup database tunggal atau semua database
+- Pembersihan otomatis backup lama berdasarkan kebijakan retensi
+- Notifikasi real-time melalui Telegram
+- Upload otomatis ke cloud storage (AWS S3, Google Drive, Dropbox, Backblaze B2)
 
-## 🛠️ Persyaratan
+## Persyaratan
 
-- MySQL Server: `mysqldump.exe` (biasanya sudah termasuk dalam instalasi MySQL)
-- 7-Zip: `7z.exe` command-line tool
-  - Download dari [7-Zip website](https://7-zip.org/)
-  - Pastikan path ke `7z.exe` sudah benar dalam script
-- PowerShell: Untuk mengirim notifikasi Telegram (sudah termasuk dalam Windows)
+1. MySQL Server dan mysqldump
+2. 7-Zip untuk kompresi
+3. PowerShell untuk notifikasi Telegram
+4. Cloud storage tools (pilih salah satu):
+   - AWS CLI untuk AWS S3
+   - rclone untuk Google Drive
+   - Dropbox Uploader untuk Dropbox
+   - B2 CLI untuk Backblaze B2
 
-## ⚙️ Pengaturan Cepat
+### Instalasi Dependensi
 
-1. Konfigurasi Script
-   Buka script dalam editor teks dan sesuaikan variabel berikut:
-   ```batch
-   SET DB_USER=your_mysql_username        REM Nama pengguna MySQL Anda
-   SET DB_PASS=your_mysql_password        REM Kata sandi pengguna MySQL Anda
-   SET DB_NAME=your_database_name         REM Nama database atau "ALL_DATABASES"
-   SET BACKUP_DIR=C:\MySQL_Backups        REM Direktori backup
-   SET RETENTION_DAYS=7                   REM Jumlah hari untuk menyimpan backup
+1. **MySQL Server**
+   - Download dan install MySQL Server dari [mysql.com](https://dev.mysql.com/downloads/mysql/)
+   - Pastikan mysqldump.exe tersedia di PATH sistem
+
+2. **7-Zip**
+   - Download dan install 7-Zip dari [7-zip.org](https://7-zip.org/)
+   - Pastikan path ke 7z.exe sudah benar di script
+
+3. **Cloud Storage Tools**
+
+   #### AWS S3
+   ```powershell
+   # Install AWS CLI
+   pip install awscli
+   
+   # Konfigurasi AWS
+   aws configure
    ```
 
-2. Konfigurasi Path Aplikasi
-   Sesuaikan path ke aplikasi yang diperlukan:
-   ```batch
-   SET MYSQLDUMP_PATH="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
-   SET PATH_7Z="C:\Program Files\7-Zip\7z.exe"
+   #### Google Drive
+   ```powershell
+   # Install rclone
+   winget install rclone
+   
+   # Konfigurasi rclone
+   rclone config
    ```
 
-3. Konfigurasi Notifikasi Telegram
-   a. Buat Bot Telegram:
-      - Buka Telegram dan cari "@BotFather"
-      - Kirim perintah `/newbot`
-      - Ikuti instruksi untuk membuat bot baru
-      - Simpan BOT_TOKEN yang diberikan
+   #### Dropbox
+   ```powershell
+   # Download Dropbox Uploader
+   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/andreafabrizi/Dropbox-Uploader/master/dropbox_uploader.bat" -OutFile "dropbox_uploader.bat"
+   ```
 
-   b. Dapatkan Chat ID:
-      - Kirim pesan ke bot baru Anda
-      - Buka browser dan akses: `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates`
-      - Cari `"chat":{"id":` dalam response
+   #### Backblaze B2
+   ```powershell
+   # Install B2 CLI
+   pip install b2
+   
+   # Konfigurasi B2
+   b2 authorize-account
+   ```
 
-   c. Update Konfigurasi Script:
-      ```batch
-      SET TELEGRAM_BOT_TOKEN=your_bot_token_here
-      SET TELEGRAM_CHAT_ID=your_chat_id_here
-      ```
+## Konfigurasi Cepat
 
-4. Test Manual
+1. Edit file `mysql_backup.bat` dan sesuaikan konfigurasi berikut:
+
    ```batch
-   cd C:\path\to\script\directory
+   :: Konfigurasi Database
+   set DB_USER=your_username
+   set DB_PASS=your_password
+   set DB_NAME=your_database  :: Atau "ALL_DATABASES" untuk backup semua database
+   
+   :: Konfigurasi Telegram
+   set TELEGRAM_BOT_TOKEN=your_bot_token
+   set TELEGRAM_CHAT_ID=your_chat_id
+   
+   :: Konfigurasi Cloud Storage
+   set ENABLE_CLOUD_BACKUP=true
+   set CLOUD_PROVIDER=aws_s3  :: Pilih: aws_s3, google_drive, dropbox, backblaze_b2
+   
+   :: Konfigurasi AWS S3
+   set AWS_BUCKET=your-bucket-name
+   set AWS_REGION=ap-southeast-1
+   ```
+
+2. Konfigurasi Cloud Storage:
+
+   #### AWS S3
+   ```powershell
+   aws configure
+   # Masukkan AWS Access Key ID
+   # Masukkan AWS Secret Access Key
+   # Masukkan default region
+   ```
+
+   #### Google Drive
+   ```powershell
+   rclone config
+   # Ikuti petunjuk untuk mengkonfigurasi Google Drive
+   ```
+
+   #### Dropbox
+   ```powershell
+   # Edit file dropbox_uploader.bat
+   # Masukkan Dropbox API token
+   ```
+
+   #### Backblaze B2
+   ```powershell
+   b2 authorize-account
+   # Masukkan account ID dan application key
+   ```
+
+3. Jalankan script secara manual untuk testing:
+   ```batch
    mysql_backup.bat
    ```
    Anda akan menerima notifikasi Telegram tentang status backup.
 
-5. Jadwalkan Otomatisasi
-   a. Buka Task Scheduler:
-      - Cari "Task Scheduler" di Start Menu
-      - Klik "Create Basic Task..."
+## Otomatisasi
 
-   b. Konfigurasi Task:
-      - Name: "Daily MySQL Backup"
-      - Trigger: "Daily" at 2:00 AM
-      - Action: "Start a program"
-      - Program: Browse ke file `mysql_backup.bat`
-      - Start in: Masukkan direktori tempat `mysql_backup.bat` berada
+Untuk menjalankan backup secara otomatis, gunakan Task Scheduler Windows:
 
-   c. Setelah pembuatan task:
-      - Klik kanan pada task
-      - Pilih Properties
-      - Centang "Run with highest privileges"
-      - Opsional: Centang "Run whether user is logged on or not"
+1. Buka Task Scheduler
+2. Klik "Create Basic Task"
+3. Beri nama dan deskripsi
+4. Pilih trigger (misal: Daily)
+5. Pilih waktu (misal: 2:00 AM)
+6. Pilih "Start a program"
+7. Browse ke lokasi `mysql_backup.bat`
+8. Selesai
 
-## 📱 Notifikasi Telegram
+## Notifikasi Telegram
 
-Script mengirim notifikasi pada beberapa tahap penting:
+Script akan mengirim notifikasi untuk berbagai status:
 
-1. Mulai Backup:
-```
-🔔 MySQL Backup Notification
+1. Backup dimulai:
+   ```
+   🔄 Memulai backup database...
+   Database: your_database
+   Waktu: 2024-02-20 02:00:00
+   ```
 
-📊 Status: STARTED
-⏰ Time: [Waktu Backup]
-📁 Database: [Nama Database]
+2. Backup berhasil:
+   ```
+   ✅ Backup dan kompresi selesai dengan sukses.
+   File: C:\backups\mysql\your_database_20240220_020000.7z
+   Ukuran: 1.2 GB
+   ```
 
-Memulai proses backup database...
-```
+3. Upload ke cloud berhasil:
+   ```
+   ✅ Backup berhasil diupload ke AWS S3
+   Lokasi: s3://your-bucket/mysql_backups/your_database_20240220_020000.7z
+   ```
 
-2. Backup Sukses:
-```
-🔔 MySQL Backup Notification
+4. Error:
+   ```
+   ❌ Gagal pada proses backup database.
+   Error: Access denied for user 'your_username'@'localhost'
+   ```
 
-📊 Status: SUCCESS
-⏰ Time: [Waktu Backup]
-📁 Database: [Nama Database]
+## Catatan Penting
 
-✅ Backup dan kompresi selesai dengan sukses.
-```
+1. **Keamanan**:
+   - Simpan kredensial database dengan aman
+   - Gunakan file konfigurasi terpisah untuk kredensial
+   - Batasi akses ke script dengan permission yang tepat
+   - Enkripsi kredensial cloud storage
 
-3. Backup Error:
-```
-🔔 MySQL Backup Notification
+2. **Lokasi Backup**:
+   - Pastikan direktori backup memiliki ruang yang cukup
+   - Gunakan lokasi terpisah dari database
+   - Pertimbangkan untuk menggunakan drive terpisah
 
-📊 Status: ERROR
-⏰ Time: [Waktu Backup]
-📁 Database: [Nama Database]
+3. **Testing**:
+   - Test proses restore secara berkala
+   - Verifikasi integritas backup
+   - Test notifikasi Telegram
+   - Test upload ke cloud storage
 
-❌ [Pesan Error]
-```
+4. **Monitoring**:
+   - Periksa log file secara berkala
+   - Monitor penggunaan ruang disk
+   - Monitor biaya cloud storage
+   - Set up monitoring untuk notifikasi error
 
-## 💡 Catatan Penting
+5. **Cloud Storage**:
+   - Pilih storage class yang sesuai dengan kebutuhan
+   - Atur lifecycle policy untuk menghemat biaya
+   - Enkripsi data sebelum upload
+   - Verifikasi upload secara berkala
 
-- Keamanan:
-  - Menyimpan password dalam script memiliki risiko
-  - Pastikan file script hanya bisa diakses oleh pengguna yang berwenang
-  - Untuk production, pertimbangkan menggunakan environment variables
-  - Jaga kerahasiaan token bot Telegram
+## Troubleshooting
 
-- Lokasi Backup:
-  - Idealnya simpan backup di disk berbeda atau off-site
-  - Pertimbangkan cloud storage untuk keamanan tambahan
-  - Pastikan direktori backup memiliki permission yang tepat
+1. **Error "Access denied"**:
+   - Periksa kredensial MySQL
+   - Pastikan user memiliki hak akses yang cukup
 
-- Testing:
-  - Test Restore! Backup hanya berguna jika bisa di-restore
-  - Test proses recovery secara berkala
-  - Verifikasi notifikasi Telegram berfungsi
-
-- Monitoring:
-  - Periksa Task Scheduler history secara berkala
-  - Monitor notifikasi Telegram
-  - Verifikasi file backup dibuat dan dirotasi dengan benar
-
-## 🔧 Troubleshooting
-
-1. Script tidak berjalan:
-   - Pastikan path ke `mysqldump.exe` dan `7z.exe` sudah benar
-   - Pastikan user memiliki akses ke direktori backup
-   - Jalankan script sebagai Administrator
-
-2. Notifikasi Telegram tidak terkirim:
-   - Periksa koneksi internet
-   - Verifikasi token bot dan chat ID
-   - Pastikan PowerShell bisa mengakses internet
-
-3. Backup gagal:
-   - Periksa kredensial database
-   - Pastikan MySQL server berjalan
+2. **Error kompresi**:
    - Periksa ruang disk yang tersedia
+   - Pastikan 7-Zip terinstal dengan benar
+   - Periksa path ke 7z.exe
+
+3. **Error Telegram**:
+   - Periksa token bot dan chat ID
+   - Pastikan bot sudah diaktifkan
+   - Periksa koneksi internet
+
+4. **Error Cloud Storage**:
+   - Periksa kredensial cloud storage
+   - Pastikan bucket/folder sudah dibuat
+   - Periksa permission dan policy
+   - Verifikasi koneksi internet
+   - Pastikan tools cloud storage terinstal dengan benar
